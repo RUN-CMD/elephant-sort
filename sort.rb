@@ -1,3 +1,5 @@
+require 'benchmark'
+
 class Elephant
 	attr_reader :weight, :iq
 
@@ -17,7 +19,6 @@ class Input
 	end
 
 	def to_a
-puts "parse: #{parse}"
 		parse
 	end
 
@@ -39,15 +40,26 @@ class ElephantSort
 		@output = []
 	end
 
-	def run
-		ByWeight.new(@input).tap do |s|
-			puts "By Weight ASC: (#{s.count} results)"
-			puts s.run
+	def results
+		Foo.new(@input).tap do |s|
+			s.run
+			puts s.report
 		end
+	end
 
-		ByIq.new(@input).tap do |s|
-			puts "By IQ ASC: (#{s.count} results)"
-			puts s.run
+	def benchmark
+		Benchmark.bmbm do |b|
+			b.report("By Weight ASC") do
+				ByWeight.new(@input).tap do |s|
+					s.run
+				end
+			end
+
+			b.report("By IQ ASC") do
+				ByIq.new(@input).tap do |s|
+					s.run
+				end
+			end
 		end
 	end
 end
@@ -60,18 +72,30 @@ module SortBy
 	def initialize(elephants)
 		@elephants = elephants
 	end
+
+	def report
+		[count, results.join("\n")].join("\n")
+	end
 end
 
 class Foo
 	include SortBy
 
+	def results
+		@elephants
+	end
+
 	def run
-		@elephants.inject([])
+		@elephants
 	end
 end
 
 class ByWeight
 	include SortBy
+
+	def results
+		run
+	end
 
 	def run
 		@elephants.sort_by { |e| e.weight }
@@ -81,9 +105,14 @@ end
 class ByIq
 	include SortBy
 
+	def results
+		run
+	end
+
 	def run
 		@elephants.sort_by { |e| e.iq }
 	end
 end
 
-ElephantSort.new(ARGV[1] || 'input.txt').run
+ElephantSort.new(ARGV[1] || 'input.txt').results
+ElephantSort.new(ARGV[1] || 'input.txt').benchmark
