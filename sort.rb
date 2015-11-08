@@ -40,20 +40,34 @@ class ElephantSort
 	end
 
 	def run
-		puts "By Weight ASC:"
-		puts ByWeight.new(@input).run
-		puts "By IQ ASC: "
-		puts ByIq.new(@input).run
+		ByWeight.new(@input).tap do |s|
+			puts "By Weight ASC: (#{s.count} results)"
+			puts s.run
+		end
+
+		ByIq.new(@input).tap do |s|
+			puts "By IQ ASC: (#{s.count} results)"
+			puts s.run
+		end
 	end
 end
 
 module SortBy
+	def count
+		@elephants.count
+	end
+
 	def initialize(elephants)
 		@elephants = elephants
 	end
 end
 
 class Foo
+	include SortBy
+
+	def run
+		@elephants.inject([])
+	end
 end
 
 class ByWeight
