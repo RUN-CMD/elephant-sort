@@ -1,15 +1,24 @@
 require 'benchmark'
 
-class Elephant
-	attr_reader :weight, :iq
+# weights must be strictly increasing, 
+# and IQs must be strictly decreasing.
 
-	def initialize(weight, iq)
-		@weight = weight
-		@iq			= iq # in hundredths of IQ points
+class Elephant
+	attr_reader :weight, :iq, :name
+	attr_accessor :parent
+
+	def initialize(weight, iq, name = nil)
+		@weight = weight.to_i
+		@iq			= iq.to_i # in hundredths of IQ points
+		@name		= name
 	end
 
 	def to_s
-		"(( °j° %5i  )),,) %5i  (,,  )~" % [@iq, @weight]
+		if name
+			"(°j° #{name})~"
+		else
+			"(( °j° %5i ))(,,) %5i (,,)~" % [@iq, @weight]
+		end
 	end
 end
 
@@ -27,7 +36,7 @@ class Input
 	def parse
 		[].tap do |elephants|
 			IO.foreach(@filename) do |line|
-				elephants << Elephant.new(*line.split(' ').map(&:to_i) )
+				elephants << Elephant.new(*line.split(' ') )
 			end
 		end
 	end
@@ -41,7 +50,7 @@ class ElephantSort
 	end
 
 	def results
-		Foo.new(@input).tap do |s|
+		Sampler.new(@input).tap do |s|
 			s.run
 			puts s.report
 		end
@@ -78,15 +87,114 @@ module SortBy
 	end
 end
 
-class Foo
+class Sample
+
+	def initialize(elephant = nil)
+		@elephants = []
+		self.<< elephant unless elephant.nil?
+	end
+
+	def <<(elephant, index = nil)
+		index = @elephants.size - 1 if index.nil? # End of the Herd
+
+		if valid_elephant?(@elephants[index], elephant)
+			elephant.parent = index
+			@elephants.insert(index, elephant)
+		else
+			self.<<(elephant, elephant.parent)
+		end
+	end
+
+	def first
+		@elephants.first
+	end
+
+	def size
+		@elephants.size
+	end
+
+	def valid_elephant?(baseline, other)
+		unless baseline.respond_to?(:weight) &&
+					 other.respond_to?(:weight) &&
+					 baseline.respond_to?(:iq) &&
+					 other.respond_to?(:iq)
+			raise ArgumentError unless baseline.nil?
+		end
+
+		return true if baseline.nil?
+
+		baseline.weight <= other.weight &&
+		baseline.iq 		>= other.iq
+	end
+end
+
+class Sampler
 	include SortBy
 
+	class Cell
+		attr_accessor :cost
+		attr_accessor :parent
+	end
+
+	class Compare
+		attr_reader :elephant, :other
+
+		def new(elephant, other)
+			@elephant, @other = elephant, other
+		end
+
+		def valid?(elephant, other)
+			elephant.weight <= other.weight &&
+			elephant.iq 		>= other.iq
+		end
+
+		#TODO nope
+		def compare
+			raise 'donut work'
+			return 0 if elephant.weight == other.weight &&
+									elephant.iq 		== other.iq
+
+			return -1 if elephant.weight <  other.weight &&
+									 elephant.iq     <= other.iq
+			return 1
+		end
+	end
+
 	def results
-		@elephants
+		@results
+	end
+
+	def traverse(i)
+		if Compare.new(elephants[i], elephants[i + 1]).compare
+			traverse(i + 1)
+		end
 	end
 
 	def run
-		@elephants
+		@samples = []
+
+		# For each input elephant
+		# create a tree of elephants below that one that meet our requirements
+		@elephants.each_with_index do |elephant, index|
+			tmp_elephants = @elephants.dup
+			@samples << Sample.new(tmp_elephants.slice(index) ).tap do |sample|
+				puts "** #{sample.first} took leadership of a new Herd!"
+				while elephant = tmp_elephants.shift
+					if sample << elephant
+						puts "** Added #{elephant} to Herd lead by #{sample.first}. " +
+								 "She is the #{sample.size}th member of the Herd."
+					else
+						# puts "** Didn't accept #{elephant} into Herd lead by #{sample.first}"
+					end
+				end
+			end
+		end
+
+		puts "** #{@samples.count} Heards of sizes: #{@samples.map(&:size)}"
+
+		require 'pry'; binding.pry
+
+		@samples
 	end
 end
 
